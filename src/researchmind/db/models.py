@@ -78,6 +78,8 @@ class SupportLabel(enum.StrEnum):
     supported = "supported"
     partially_supported = "partially_supported"
     unsupported = "unsupported"
+    not_checked = "not_checked"
+    uncited = "uncited"
 
 
 class NoteKind(enum.StrEnum):
