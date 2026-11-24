@@ -1,0 +1,43 @@
+name: researchmind
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-researchmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-researchmind}
+      POSTGRES_DB: ${POSTGRES_DB:-researchmind}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-researchmind}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-researchmind}:${POSTGRES_PASSWORD:-researchmind}@db:5432/${POSTGRES_DB:-researchmind}
+      DATA_DIR: /data
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - appdata:/data
+      - models:/models
+    ports:
+      - "127.0.0.1:8501:8501"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  pgdata:
+  appdata:
+  models:

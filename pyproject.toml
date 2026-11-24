@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "researchmind"
+version = "0.1.0"
+description = "Agentic RAG system for scientific literature intelligence"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Lina Diaf", email = "diaflinapro@gmail.com" }]
+requires-python = ">=3.11"
+dependencies = [
+  "langgraph>=1.2,<2",
+  "langgraph-checkpoint-postgres>=3,<4",
+  "sqlalchemy>=2.0,<3",
+  "alembic>=1.13",
+  "psycopg[binary,pool]>=3.2",
+  "pgvector>=0.3",
+  "pymupdf>=1.24",
+  "bm25s>=0.2",
+  "httpx>=0.27",
+  "pydantic>=2.7",
+  "pydantic-settings>=2.3",
+  "structlog>=24",
+  "tenacity>=8",
+  "rapidfuzz>=3",
+  "streamlit>=1.40",
+  "google-genai>=1.0",
+  "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+ml = ["sentence-transformers>=3.0"]
+dev = ["pytest>=8", "pytest-cov", "respx>=0.21", "ruff>=0.5", "mypy>=1.10"]
+
+[project.scripts]
+researchmind = "researchmind.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+researchmind = ["agent/prompts/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+  "integration: needs PostgreSQL with pgvector (DATABASE_URL_TEST)",
+  "live: calls real external services (LLM server, scholarly APIs)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = false
