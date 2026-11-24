@@ -20,6 +20,7 @@ class AgentBudgetSettings(BaseSettings):
     max_seconds: int = Field(900, ge=30)
     top_k: int = Field(8, ge=1, le=30)
     rerank_candidates: int = Field(40, ge=5, le=200)
+    enable_critique: bool = True
 
 
 class Settings(BaseSettings):

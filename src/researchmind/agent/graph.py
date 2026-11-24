@@ -219,7 +219,7 @@ class ResearchAgent:
     def after_select(self, state: ResearchState) -> str:
         if state.get("current"):
             return "route"
-        if (not state.get("critique_done") and not state.get("stop_reason")
+        if (self.b.enable_critique and not state.get("critique_done") and not state.get("stop_reason")
                 and self._remaining_calls() > SYNTHESIS_RESERVE + 1 and state.get("evidence")):
             return "critique"
         return "synthesize"
@@ -258,7 +258,9 @@ class ResearchAgent:
                 source = "fallback"
         rp = plan_route(sub, queries, round_no, self.b.top_k, conflict)
         sections = llm_sections if (llm_sections and rp.mode != "broaden") else rp.section_kinds
+        scope = (state.get("config") or {}).get("paper_ids") or None
         filters = RetrievalFilters(
+            paper_ids=[uuid.UUID(p) for p in scope] if scope else None,
             year_min=analysis.get("year_min"), year_max=analysis.get("year_max"),
             section_kinds=[SectionKind(s) for s in sections] or None)
         req = RetrievalRequest(

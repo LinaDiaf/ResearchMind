@@ -38,6 +38,8 @@ EventCallback = Callable[[dict[str, Any]], None]
 
 def make_postgres_checkpointer(conninfo: str):
     """Postgres checkpointer backed by a connection pool (safe across threads)."""
+    import atexit
+
     from langgraph.checkpoint.postgres import PostgresSaver
     from psycopg.rows import dict_row
     from psycopg_pool import ConnectionPool
@@ -45,6 +47,7 @@ def make_postgres_checkpointer(conninfo: str):
     pool = ConnectionPool(conninfo, max_size=8, open=True,
                           kwargs={"autocommit": True, "prepare_threshold": 0,
                                   "row_factory": dict_row})
+    atexit.register(pool.close)
     saver = PostgresSaver(pool)
     saver.setup()
     return saver
@@ -66,12 +69,14 @@ class InvestigationRunner:
         self.checkpointer = checkpointer
 
     # ------------------------------------------------------------------ setup
-    def create(self, project_id: uuid.UUID, question: str) -> uuid.UUID:
+    def create(self, project_id: uuid.UUID, question: str,
+               paper_ids: list[uuid.UUID] | None = None) -> uuid.UUID:
         with self.sf.begin() as s:
             inv = Investigation(
                 project_id=project_id, question=question.strip(),
                 status=InvestigationStatus.interrupted,
                 config={"provider": self.provider.provider, "model": self.provider.model,
+                        "paper_ids": [str(p) for p in paper_ids] if paper_ids else None,
                         "embedding_model": self.engine.embedder.model,
                         "reranker": getattr(self.engine.reranker, "name", "none"),
                         "budget": self.budget.model_dump(), "prompt_version": PROMPT_VERSION})
@@ -120,6 +125,7 @@ class InvestigationRunner:
             if inv.status is InvestigationStatus.completed and inv.report:
                 return inv.report
             question, project_id = inv.question, inv.project_id
+            scope = (inv.config or {}).get("paper_ids")
             seq = s.scalar(select(func.coalesce(func.max(InvestigationEvent.seq), 0))
                            .where(InvestigationEvent.investigation_id == investigation_id)) or 0
 
@@ -134,6 +140,7 @@ class InvestigationRunner:
         payload = None if resuming else {
             "investigation_id": str(investigation_id), "project_id": str(project_id),
             "question": question, "subquestions": [], "evidence": {}, "critique_done": False,
+            "config": {"paper_ids": scope},
             "llm_calls": 0, "elapsed_s": 0.0}
         self._set_status(investigation_id, InvestigationStatus.running)
         if resuming:

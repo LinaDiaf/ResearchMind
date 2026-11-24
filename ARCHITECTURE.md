@@ -1,7 +1,7 @@
 # ResearchMind — Architecture
 
-> Status: **design proposal** (Phase 1 not implemented yet). This document describes the target
-> architecture. Sections are marked when they belong to Phase 2 or Phase 3.
+> Status: Phase 1 implemented (see IMPLEMENTATION_PLAN.md for what is tested). Sections are
+> marked when they belong to Phase 2 or Phase 3.
 
 ResearchMind is an agentic RAG system for scientific literature. Its core is a bounded LangGraph
 workflow that plans an investigation, chooses retrieval strategies, evaluates the evidence it
@@ -61,8 +61,8 @@ statement is linked to a passage and a page of an indexed publication.
                          └───────────────────┘
 ```
 
-Everything runs in one Python application (Streamlit) plus PostgreSQL, orchestrated with Docker
-Compose. There is no separate API server.
+Everything runs in one Python application (Streamlit, plus a CLI for batch work) and
+PostgreSQL, orchestrated with Docker Compose. There is no separate API server.
 
 ---
 
@@ -71,39 +71,35 @@ Compose. There is no separate API server.
 ```
 researchmind/
 ├── app/                          # Streamlit UI only (no business logic)
-│   ├── Home.py                   # Dashboard
-│   ├── pages/
-│   │   ├── 1_Projects.py
-│   │   ├── 2_Library.py          # upload PDFs, discover & import papers
-│   │   ├── 3_Research_Assistant.py
-│   │   ├── 4_Paper_Comparison.py
-│   │   ├── 5_Evidence_Explorer.py
-│   │   └── 9_Settings.py
-│   └── components/               # shared widgets (citation card, plan view, PDF page viewer)
+│   ├── Home.py                   # entry point and navigation
+│   ├── views/                    # dashboard, projects, library, assistant, comparison,
+│   │                             # evidence, knowledge_graph (Phase 3), settings
+│   └── components/               # shared widgets (report, citations, project selector)
 ├── src/researchmind/
 │   ├── config.py                 # pydantic-settings, all configuration from env
 │   ├── logging.py                # structlog JSON logging, run/investigation ids in context
 │   ├── db/
 │   │   ├── models.py             # SQLAlchemy 2 ORM models
-│   │   ├── session.py
-│   │   └── repositories/         # papers, chunks, projects, investigations, evidence
+│   │   └── session.py
 │   ├── llm/
-│   │   ├── base.py               # LLMProvider protocol: generate(), generate_structured()
+│   │   ├── base.py               # LLMProvider protocol
+│   │   ├── client.py             # budget, accounting, typed generation
 │   │   ├── gemini.py             # google-genai
 │   │   ├── ollama.py             # native /api/chat, JSON-schema format, think=false
 │   │   ├── openai_compat.py      # vLLM, LM Studio, OpenRouter …
-│   │   ├── structured.py         # schema → JSON, parse, repair, bounded retry
-│   │   └── accounting.py         # tokens, latency, cost per call
+│   │   └── structured.py         # schema → JSON, parse, repair, bounded retry
 │   ├── embeddings/               # Embedder protocol: sentence-transformers, Ollama
 │   ├── ingestion/
 │   │   ├── pdf_parser.py         # PyMuPDF: text blocks, fonts, pages, char offsets
 │   │   ├── sections.py           # heading detection, section typing
 │   │   ├── chunker.py            # section-aware chunks with page provenance
-│   │   ├── metadata.py           # DOI / arXiv id extraction, enrichment
-│   │   └── dedup.py
+│   │   ├── metadata.py           # DOI / arXiv id extraction, normalization
+│   │   ├── dedup.py
+│   │   ├── render.py             # PDF page rendering with passage highlight
+│   │   └── service.py            # Library: projects, ingestion, imports, indexing
 │   ├── discovery/
-│   │   ├── openalex.py · semantic_scholar.py · crossref.py · arxiv.py
-│   │   ├── normalize.py          # common PaperRecord schema
+│   │   ├── sources.py            # OpenAlex, Semantic Scholar, Crossref, arXiv, merging
+│   │   ├── models.py             # common PaperRecord schema
 │   │   └── http.py               # rate limiting, retries, on-disk cache
 │   ├── retrieval/
 │   │   ├── dense.py              # pgvector cosine search
@@ -113,19 +109,18 @@ researchmind/
 │   │   ├── reranker.py           # cross-encoder
 │   │   └── engine.py             # RetrievalRequest → RetrievalResult
 │   ├── agent/
-│   │   ├── state.py              # ResearchState (typed)
+│   │   ├── state.py              # ResearchState (JSON-only, checkpointable)
 │   │   ├── schemas.py            # LLM decision schemas
-│   │   ├── nodes/                # one module per node
+│   │   ├── graph.py              # nodes, budgets and StateGraph assembly
 │   │   ├── policy.py             # deterministic routing & stopping rules
-│   │   ├── budget.py
 │   │   ├── safety.py             # untrusted-content wrapping, injection heuristics
-│   │   ├── prompts/              # versioned prompt templates
-│   │   └── graph.py              # StateGraph assembly + Postgres checkpointer
+│   │   └── prompts.py            # versioned prompt templates
 │   ├── synthesis/
-│   │   ├── report.py
-│   │   └── citations.py          # citation validation and claim support checks
+│   │   └── report.py             # citation validation, verdicts, rendering
 │   ├── comparison/               # cross-paper comparison tables
-│   └── workspace/                # projects, investigations, notes, resume
+│   ├── workspace/                # investigation runner, notes, background runs
+│   ├── services.py               # wiring of shared components
+│   └── cli.py
 ├── migrations/                   # Alembic
 ├── evaluation/                   # benchmark, baselines, metrics, ablations (Phase 2)
 ├── tests/
@@ -404,10 +399,11 @@ This is what makes the workflow agentic rather than a fixed pipeline.
 | conflicting evidence | targeted retrieval for experimental conditions of both sides |
 | two rounds without new relevant evidence, or rounds exhausted | mark **insufficient evidence**, with the missing aspects |
 
-**Strategy escalation** on refinement: hybrid → lexical with extracted key terms → widened
-filters / larger k / other section kinds. Phase 1 can also propose papers to import from the
-discovery APIs when the library itself lacks evidence; importing requires the user's approval
-(LangGraph `interrupt`), it is never automatic.
+**Strategy escalation** on refinement: round 2 aims new queries at the missing aspects (or at
+the experimental conditions of both sides of a conflict) with a higher BM25 weight and widened
+sections; round 3 is BM25-heavy without section filters and with a larger k. When the library
+itself lacks evidence, the report lists the unanswered subquestions with suggested literature
+searches; importing papers is always the user's decision, never automatic.
 
 ---
 
@@ -476,7 +472,7 @@ Small local models make structured output the main reliability risk; mitigations
 
 ---
 
-## 14. Evaluation (Phase 2, designed now)
+## 14. Evaluation (QASPER runner implemented; other datasets planned)
 
 Systems compared, all on the same corpus and models:
 1. vector RAG; 2. hybrid RAG; 3. hybrid + reranking; 4. agentic hybrid; 5. agentic + graph (Phase 3).

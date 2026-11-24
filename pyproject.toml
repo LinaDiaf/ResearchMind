@@ -42,7 +42,7 @@ researchmind = "researchmind.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-researchmind = ["agent/prompts/*.md"]
+researchmind = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,10 @@
+{
+  "name": "qasper_smoke",
+  "description": "Pipeline check: 3 papers, 2 questions each, all systems.",
+  "split": "test",
+  "n_papers": 3,
+  "max_questions_per_paper": 2,
+  "seed": 13,
+  "k": 8,
+  "systems": ["vector", "hybrid", "hybrid_rerank", "agentic", "agentic_single_round", "agentic_no_critique"]
+}

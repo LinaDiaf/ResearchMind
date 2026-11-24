@@ -1,0 +1,22 @@
+{
+  "synthetic-0001": {
+    "title": "Synthetic QASPER-format paper: entity linking with graph features",
+    "abstract": "We study entity linking with graph features. This record is synthetic and only exercises the loader.",
+    "full_text": [
+      {"section_name": "Introduction", "paragraphs": ["Entity linking maps mentions to knowledge base entries. Graph features capture relations between candidate entities."]},
+      {"section_name": "Experiments ::: Datasets", "paragraphs": ["We evaluate on the AIDA-CoNLL dataset and on the WNED-WIKI dataset.", "Training uses the AIDA training split only."]},
+      {"section_name": "Results", "paragraphs": ["Graph features improve micro F1 by 2.3 points on AIDA-CoNLL.", "FLOAT SELECTED: Table 2: results"]}
+    ],
+    "qas": [
+      {"question": "Which datasets are used for evaluation?", "question_id": "q1",
+       "answers": [
+         {"answer": {"unanswerable": false, "extractive_spans": ["AIDA-CoNLL", "WNED-WIKI"], "yes_no": null, "free_form_answer": "", "evidence": ["We evaluate on the AIDA-CoNLL dataset and on the WNED-WIKI dataset."], "highlighted_evidence": []}},
+         {"answer": {"unanswerable": false, "extractive_spans": ["AIDA-CoNLL dataset", "WNED-WIKI dataset"], "yes_no": null, "free_form_answer": "", "evidence": ["We evaluate on the AIDA-CoNLL dataset and on the WNED-WIKI dataset.", "FLOAT SELECTED: Table 2: results"], "highlighted_evidence": []}}
+       ]},
+      {"question": "How much do graph features improve F1?", "question_id": "q2",
+       "answers": [{"answer": {"unanswerable": false, "extractive_spans": [], "yes_no": null, "free_form_answer": "by 2.3 micro F1 points on AIDA-CoNLL", "evidence": ["Graph features improve micro F1 by 2.3 points on AIDA-CoNLL."], "highlighted_evidence": []}}]},
+      {"question": "Do they release their code?", "question_id": "q3",
+       "answers": [{"answer": {"unanswerable": true, "extractive_spans": [], "yes_no": null, "free_form_answer": "", "evidence": [], "highlighted_evidence": []}}]}
+    ]
+  }
+}

@@ -16,11 +16,13 @@ with st.form("ask"):
     question = st.text_area("Research question", height=90,
                             placeholder="e.g. How do learned sparse and dense retrievers compare "
                                         "out of domain, and what limitations do the authors report?")
+    scope = st.multiselect("Restrict to papers (optional)", svc.library.project_papers(pid),
+                           format_func=lambda p: p.title)
     if st.form_submit_button("Investigate", type="primary") and question.strip():
         if not svc.library.project_papers(pid):
             st.error("This project has no papers yet.")
         else:
-            inv_id = svc.runner.create(pid, question)
+            inv_id = svc.runner.create(pid, question, [p.id for p in scope] or None)
             runs.start(inv_id, lambda: svc.runner.run(inv_id))
             st.session_state["investigation_id"] = inv_id
 
