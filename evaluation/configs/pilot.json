@@ -1,0 +1,10 @@
+{
+  "name": "qasper_pilot",
+  "description": "Pilot: 15 papers, up to 3 questions each (about 45 questions), all systems.",
+  "split": "test",
+  "n_papers": 15,
+  "max_questions_per_paper": 3,
+  "seed": 13,
+  "k": 8,
+  "systems": ["vector", "hybrid", "hybrid_rerank", "agentic", "agentic_single_round", "agentic_no_critique"]
+}

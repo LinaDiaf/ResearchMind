@@ -13,22 +13,30 @@ proves it). A milestone is only marked ✅ when its tests pass; what was not tes
 
 ## Phase 1 — Functional agentic RAG MVP
 
+The column “Tests that close it” lists what was actually run.
+
 | # | Milestone | Content | Tests that close it | Status |
 |---|---|---|---|---|
-| M0 | Foundations | `pyproject`, config, logging, Docker Compose (pgvector + app), Alembic baseline, CI | config/unit tests; migration up/down on pgvector in CI | ⬜ |
-| M1 | Model providers | LLM protocol, Ollama, Gemini, OpenAI-compatible; structured output with repair/retry; accounting; embedders; cross-encoder | unit tests with a fake HTTP server; smoke test with Qwen on the evaluation machine | ⬜ |
-| M2 | Ingestion | PyMuPDF parser, sections, chunker with page/offset provenance, metadata extraction, dedup, persistence | fixture PDFs (open-access) → expected sections/pages; dedup cases; DB round-trip in CI | ⬜ |
-| M3 | Discovery | OpenAlex, Semantic Scholar, Crossref, arXiv clients, normalization, import, open-access PDF download | recorded responses (unit); live smoke test on the evaluation machine | ⬜ |
-| M4 | Hybrid retrieval | dense (pgvector), BM25 (bm25s), filters, RRF fusion, diversity, reranking | ranking unit tests; integration test on a fixture corpus with known relevant chunks | ⬜ |
-| M5 | Agent core | state, schemas, nodes, deterministic policy, budgets, Postgres checkpointer, CLI runner | policy unit tests (every branch); graph tests with a scripted fake LLM (refine, stagnation, budget exhaustion, resume after interruption) | ⬜ |
-| M6 | Grounded synthesis | report schema, claim types, citation verification, injection safeguards | fabricated-id removal, unsupported-claim handling, adversarial documents | ⬜ |
-| M7 | Streamlit workspace | Dashboard, Projects, Library, Research Assistant (live plan & progress), Evidence Explorer (PDF page highlight), basic Comparison, Settings, save/resume | page smoke tests (`streamlit.testing`); manual run on the evaluation machine | ⬜ |
-| M8 | Phase 1 validation | end-to-end investigation with Qwen 3.5 9B on a small real corpus; README run instructions | run log + stored outputs from the evaluation machine | ⬜ |
+| M0 | Foundations | `pyproject`, config, logging, Docker Compose (pgvector + app), Alembic baseline, CI | migration up/down on pgvector; CI (`tests`, `docker`) | ✅ |
+| M1 | Model providers | LLM protocol, Ollama, Gemini, OpenAI-compatible; structured output with repair/retry; accounting; embedders; cross-encoder | mocked HTTP for Ollama/OpenAI-compatible, fake Gemini client, repair and budget tests; real-model CI job (`models`). Qwen smoke test on the evaluation machine: pending | ✅ |
+| M2 | Ingestion | PyMuPDF parser, sections, chunker with page/offset provenance, metadata extraction, dedup, persistence | synthetic PDF corpus: sections, page/offset provenance, dedup, DB round-trip | ✅ |
+| M3 | Discovery | OpenAlex, Semantic Scholar, Crossref, arXiv clients, normalization, import, open-access PDF download | parsers on hand-written responses in each API's documented format, merging, retries, cache. Live API test on the evaluation machine: pending | ✅ |
+| M4 | Hybrid retrieval | dense (pgvector), BM25 (bm25s), filters, RRF fusion, diversity, reranking | lexical exact hit with page, filters, references excluded, diversity, exclusion, dense/hybrid; real cross-encoder and embedder in CI | ✅ |
+| M5 | Agent core | state, schemas, nodes, deterministic policy, budgets, Postgres checkpointer, CLI runner | scripted-LLM graph tests: refine, conflict, stagnation, budget exhaustion, invalid outputs; crash and resume with the Postgres checkpointer | ✅ |
+| M6 | Grounded synthesis | report schema, claim types, citation verification, injection safeguards | fabricated ids removed, unsupported claims removed, injection flagged and unable to create citations | ✅ |
+| M7 | Streamlit workspace | Dashboard, Projects, Library, Research Assistant (live plan & progress), Evidence Explorer (PDF page highlight), basic Comparison, Settings, save/resume | every page rendered with `streamlit.testing` on the real database, report and evidence pages, comparison citation constraints, page highlighting, CLI ingestion | ✅ |
+| M8 | Phase 1 validation | end-to-end investigation with Qwen 3.5 9B on a small real corpus; README run instructions | end-to-end run with Qwen 3.5 9B on the evaluation machine: pending | 🟨 |
 
 ## Phase 2 — Advanced research intelligence
 
-Scientific entity/result/claim extraction · contradiction analysis · research gap discovery ·
-benchmark (QASPER, SciFact, ResearchMind multi-paper set) · baselines and ablations · Langfuse.
+| Item | Status |
+|---|---|
+| QASPER benchmark runner: systems vector, hybrid, hybrid + rerank, agentic, agentic single-round, agentic without critique; retrieval, answer, citation, unanswerable-detection and cost metrics; resumable runs; report with bootstrap CIs | 🟨 implemented and tested on a fixture with a scripted model; real runs pending |
+| SciFact (claim verification) and a multi-paper ResearchMind set (human-validated gold) | ⬜ |
+| LLM-as-judge faithfulness with a stronger judge model | ⬜ |
+| Scientific entity / result / claim extraction | ⬜ |
+| Contradiction analysis and research gap discovery | ⬜ |
+| Langfuse tracing | ⬜ |
 
 ## Phase 3 — Knowledge graph
 

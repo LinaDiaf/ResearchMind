@@ -230,6 +230,72 @@ class Library:
         log.info("paper_indexed", paper_id=str(paper_id), chunks=len(drafts))
         return len(drafts)
 
+    def ingest_structured(
+        self,
+        project_id: uuid.UUID,
+        title: str,
+        sections: list[tuple[str, list[str]]],
+        *,
+        abstract: str | None = None,
+        source: str = "text",
+        record: PaperRecord | None = None,
+        reindex: bool = True,
+    ) -> IngestResult:
+        """Ingest a paper available as structured text (e.g. benchmark corpora) instead of a PDF.
+
+        There is no page information: every passage is recorded on page 1 and the paper has no
+        PDF, which the UI shows explicitly."""
+        from researchmind.ingestion.pdf_parser import Line, ParsedDocument
+        from researchmind.ingestion.sections import DetectedSection, classify_heading
+
+        parts: list[str] = []
+        lines: list[Line] = []
+        detected: list[DetectedSection] = []
+        offset = 0
+        blocks = ([("Abstract", [abstract])] if abstract else []) + list(sections)
+        for b, (heading, paragraphs) in enumerate(blocks):
+            sec_lines = []
+            for para in paragraphs:
+                para = " ".join(str(para).split())
+                if not para:
+                    continue
+                if parts:
+                    parts.append("\n")
+                    offset += 1
+                ln = Line(para, 1, 10.0, False, offset, offset + len(para), b)
+                parts.append(para)
+                offset += len(para)
+                lines.append(ln)
+                sec_lines.append(ln)
+            if sec_lines:
+                name = heading or "Untitled section"
+                kind = SectionKind.abstract if name == "Abstract" else classify_heading(name)
+                detected.append(DetectedSection(name, kind, 1, sec_lines))
+        doc = ParsedDocument("".join(parts), lines, 1, [0], 10.0)
+        cand = Candidate(title=title, year=record.year if record else None,
+                         doi=record.doi if record else None,
+                         arxiv_id=record.arxiv_id if record else None)
+        with self.sf.begin() as s:
+            existing, rule = find_duplicate(s, cand)
+            if existing is not None and existing.status is PaperStatus.ingested:
+                self._link(s, project_id, existing.id)
+                return IngestResult(existing.id, "duplicate", existing.title, rule)
+            paper = existing or Paper(source=source, title=title, title_norm=normalize_title(title))
+            if existing is None:
+                s.add(paper)
+            self._apply_record(paper, record)
+            paper.abstract = paper.abstract or abstract
+            paper.page_count = None
+            paper.status = PaperStatus.parsing
+            paper.parse_warnings = ["ingested from structured text: no PDF, no page numbers"]
+            s.flush()
+            self._link(s, project_id, paper.id)
+            pid = paper.id
+        n = self._index_paper(pid, doc, detected)
+        if reindex:
+            self.reindex(project_id)
+        return IngestResult(pid, "ingested", title, n_chunks=n)
+
     def import_record(self, project_id: uuid.UUID, record: PaperRecord,
                       download_pdf: bool = True) -> IngestResult:
         """Add a discovered paper. Open-access PDFs are downloaded and ingested; otherwise the
